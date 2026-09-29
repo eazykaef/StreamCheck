@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamCheck - Можно ли стримить фильм?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Styles & Animations */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%);
+        }
+
+        .glass-panel {
+            background: rgba(30, 33, 40, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .neon-border:focus-within {
+            box-shadow: 0 0 0 2px #6366f1, 0 0 15px rgba(99, 102, 241, 0.5);
+            border-color: transparent;
+        }
+
+        .btn-check {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-check:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(168, 85, 247, 0.5);
+        }
+
+        .btn-check:active {
+            transform: translateY(1px);
+        }
+
+        .result-success {
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .result-error {
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden-element { display: none !important; }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <main class="w-full max-w-2xl mx-auto flex flex-col gap-6">
+        
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="text-3xl sm:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">
+                StreamCheck
+            </h1>
+            <p class="text-gray-400 text-sm sm:text-base">Можно ли смотреть этот фильм на стриме?</p>
+        </div>
+
+        <!-- Main Search Panel -->
+        <div class="glass-panel rounded-2xl p-5 sm:p-8 flex flex-col items-center">
+            <div class="w-full relative">
+                <div class="bg-gray-800/80 rounded-xl border border-gray-700 neon-border transition-all flex items-center px-4 py-1">
+                    <svg class="w-6 h-6 text-indigo-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <input type="text" id="movieInput" class="w-full bg-transparent py-4 outline-none text-lg text-white placeholder-gray-500" placeholder="Введите название фильма..." autocomplete="off">
+                </div>
+            </div>
+            
+            <button id="checkMovieBtn" class="btn-check w-full sm:w-auto mt-6 text-white font-bold text-lg py-4 px-12 rounded-xl shadow-lg flex justify-center items-center gap-3">
+                <span id="btnText">Проверить</span>
+                <div id="btnSpinner" class="spinner hidden-element"></div>
+            </button>
+        </div>
+
+        <!-- Result Panel -->
+        <div id="resultContainer" class="glass-panel rounded-2xl p-6 sm:p-10 text-center hidden-element">
+            
+            <!-- Movie Info header -->
+            <div id="movieCardInfo" class="mb-6 pb-6 border-b border-gray-700/50 hidden-element">
+                <h3 id="resMovieTitle" class="text-2xl font-bold text-white mb-1">Название фильма</h3>
+                <p id="resMovieMeta" class="text-gray-400">Год: 2020</p>
+            </div>
+
+            <!-- Verdict -->
+            <div id="verdictIcon" class="flex justify-center mb-4"></div>
+            <h2 id="verdictTitle" class="text-3xl sm:text-4xl font-black mb-4 uppercase tracking-wide"></h2>
+            
+            <!-- Reason -->
+            <div id="reasonContainer" class="inline-block bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-3 hidden-element">
+                <p id="verdictReason" class="text-gray-300 font-medium"></p>
+            </div>
+            
+            <!-- Error message -->
+            <p id="errorMessage" class="text-red-400 mt-2 hidden-element"></p>
+        </div>
+
+    </main>
+
+    <script>
+        // =========================================================================
+        const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+        // =========================================================================
+
+        const BANNED_KEYWORDS = ["warner", "amazon", "netflix", "уорнер", "амазон", "нетфликс"];
+        const MAX_YEAR = 2021;
+
+        const DOM = {
+            movieInput: document.getElementById('movieInput'),
+            checkMovieBtn: document.getElementById('checkMovieBtn'),
+            btnText: document.getElementById('btnText'),
+            btnSpinner: document.getElementById('btnSpinner'),
+            
+            resultContainer: document.getElementById('resultContainer'),
+            movieCardInfo: document.getElementById('movieCardInfo'),
+            resMovieTitle: document.getElementById('resMovieTitle'),
+            resMovieMeta: document.getElementById('resMovieMeta'),
+            
+            verdictIcon: document.getElementById('verdictIcon'),
+            verdictTitle: document.getElementById('verdictTitle'),
+            reasonContainer: document.getElementById('reasonContainer'),
+            verdictReason: document.getElementById('verdictReason'),
+            errorMessage: document.getElementById('errorMessage')
+        };
+
+        function init() {
+            DOM.checkMovieBtn.addEventListener('click', handleCheckMovie);
+            DOM.movieInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleCheckMovie();
+            });
+        }
+
+        function setLoading(isLoading) {
+            DOM.checkMovieBtn.disabled = isLoading;
+            if (isLoading) {
+                DOM.btnText.classList.add('hidden-element');
+                DOM.btnSpinner.classList.remove('hidden-element');
+                DOM.resultContainer.classList.add('hidden-element');
+                DOM.errorMessage.classList.add('hidden-element');
+            } else {
+                DOM.btnText.classList.remove('hidden-element');
+                DOM.btnSpinner.classList.add('hidden-element');
+            }
+        }
+
+        async function handleCheckMovie() {
+            if (!API_KEY) {
+                showError("Ошибка: В коде не указан API_KEY! Откройте файл в блокноте и вставьте ключ.");
+                return;
+            }
+
+            const query = DOM.movieInput.value.trim();
+            if (!query) {
+                DOM.movieInput.focus();
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const searchUrl = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}&page=1`;
+                const searchRes = await fetch(searchUrl, {
+                    method: 'GET',
+                    headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
+                });
+
+                if (searchRes.status === 401) throw new Error("Неверный API ключ в коде.");
+                if (searchRes.status === 402) throw new Error("Превышен лимит запросов API.");
+                if (!searchRes.ok) throw new Error(`Ошибка сети: ${searchRes.status}`);
+
+                const searchData = await searchRes.json();
+                
+                if (!searchData.films || searchData.films.length === 0) {
+                    showError("Фильм не найден. Попробуйте уточнить название.");
+                    return;
+                }
+
+                const movieInfo = searchData.films[0];
+                const filmId = movieInfo.filmId;
+
+                const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}`;
+                const detailsRes = await fetch(detailsUrl, {
+                    method: 'GET',
+                    headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
+                });
+
+                if (!detailsRes.ok) throw new Error("Не удалось загрузить детальную информацию о фильме.");
+                
+                const detailsData = await detailsRes.json();
+                validateMovie(detailsData);
+
+            } catch (error) {
+                console.error(error);
+                showError(error.message || "Произошла неизвестная ошибка при поиске.");
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function validateMovie(movie) {
+            const title = movie.nameRu || movie.nameOriginal || "Без названия";
+            let year = parseInt(movie.year, 10);
+            
+            let contentText = (movie.description || '') + ' ' + (movie.shortDescription || '');
+            if (movie.productionCompanies && Array.isArray(movie.productionCompanies)) {
+                const companiesStr = movie.productionCompanies.map(c => c.name).join(' ');
+                contentText += ' ' + companiesStr;
+            }
+            contentText = contentText.toLowerCase();
+
+            let failReason = null;
+
+            if (!isNaN(year) && year > MAX_YEAR) {
+                failReason = `Год выпуска ${year} > ${MAX_YEAR}`;
+            } else {
+                const foundBanned = BANNED_KEYWORDS.find(keyword => contentText.includes(keyword.toLowerCase()));
+                if (foundBanned) {
+                    const displayWord = foundBanned.charAt(0).toUpperCase() + foundBanned.slice(1);
+                    failReason = `Найдена запрещенная студия/связь: ${displayWord}`;
+                }
+            }
+
+            renderVerdict(title, year, failReason);
+        }
+
+        function renderVerdict(title, year, failReason) {
+            DOM.resultContainer.classList.remove('hidden-element');
+            DOM.errorMessage.classList.add('hidden-element');
+            DOM.movieCardInfo.classList.remove('hidden-element');
+
+            DOM.resMovieTitle.textContent = title;
+            DOM.resMovieMeta.textContent = `Год выпуска: ${year || 'Неизвестно'}`;
+
+            DOM.verdictTitle.className = "text-3xl sm:text-4xl font-black mb-4 uppercase tracking-wide";
+            
+            if (failReason) {
+                DOM.verdictIcon.innerHTML = `
+                    <div class="bg-red-500/20 p-4 rounded-full">
+                        <svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>`;
+                DOM.verdictTitle.textContent = "Нет, фильм нельзя смотреть на стриме";
+                DOM.verdictTitle.classList.add('text-red-500', 'result-error');
+                
+                DOM.reasonContainer.classList.remove('hidden-element');
+                DOM.verdictReason.textContent = failReason;
+                DOM.verdictReason.classList.add('text-red-400');
+            } else {
+                DOM.verdictIcon.innerHTML = `
+                    <div class="bg-green-500/20 p-4 rounded-full">
+                        <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>`;
+                DOM.verdictTitle.textContent = "Да, фильм можно смотреть на стриме!";
+                DOM.verdictTitle.classList.add('text-green-500', 'result-success');
+                
+                DOM.reasonContainer.classList.add('hidden-element');
+            }
+        }
+
+        function showError(msg) {
+            DOM.resultContainer.classList.remove('hidden-element');
+            DOM.movieCardInfo.classList.add('hidden-element');
+            DOM.verdictIcon.innerHTML = '';
+            DOM.verdictTitle.textContent = '';
+            DOM.reasonContainer.classList.add('hidden-element');
+            
+            DOM.errorMessage.textContent = msg;
+            DOM.errorMessage.classList.remove('hidden-element');
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamCheck - Проверка фильмов</title>
     <style>
-        /* Стили остались без изменений (тот самый красивый неоновый дизайн) */
         :root {
             --neon-red: #ff2a2a;
             --neon-green: #39ff14;
@@ -87,6 +86,8 @@
         .allowed .verdict-title { color: var(--neon-green); text-shadow: 0 0 15px var(--neon-green); }
         .forbidden .verdict-title { color: var(--neon-red); text-shadow: 0 0 15px var(--neon-red); }
         .verdict-reasons { font-size: 1.15rem; color: rgba(255,255,255,0.9); margin: 0; line-height: 1.6; }
+        
+        .studio-list { font-size: 0.9rem; color: #888; margin-top: 15px; font-style: italic; }
 
         .movie-content { display: flex; gap: 35px; }
         .poster { width: 240px; border-radius: 14px; box-shadow: 0 15px 30px rgba(0,0,0,0.6); object-fit: cover; }
@@ -128,12 +129,13 @@
         <button onclick="checkMovie()">Проверить</button>
     </div>
     
-    <div id="loading" class="loading">Анализируем базы данных (Кинопоиск + OMDb)...</div>
+    <div id="loading" class="loading">Анализируем базы данных (Кинопоиск + Wikidata)...</div>
 
     <div id="movieCard" class="glass-card">
         <div id="statusBanner" class="verdict-box">
             <h2 id="statusText" class="verdict-title"></h2>
             <div id="statusReasons" class="verdict-reasons"></div>
+            <div id="studioList" class="studio-list"></div>
         </div>
         
         <div class="movie-content">
@@ -148,9 +150,35 @@
 </div>
 
 <script>
-    // ВАШИ КЛЮЧИ (Обязательно заполните оба!)
+    // ВАШ КЛЮЧ ТОЛЬКО ОТ КИНОПОИСКА (OMDb больше не нужен!)
     const KP_API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
-    const OMDB_API_KEY = "cbe9adcf"; // Получить бесплатно на omdbapi.com
+
+    // Функция точного запроса к Wikidata (ищет продакшн и дистрибьюторов по IMDb ID)
+    async function getStudiosFromWikidata(imdbId) {
+        if (!imdbId) return [];
+        // SPARQL запрос: P272 = производственная компания, P750 = дистрибьютор
+        const query = `
+            SELECT ?companyLabel WHERE {
+              ?film wdt:P345 "${imdbId}" .
+              { ?film wdt:P272 ?company . } 
+              UNION 
+              { ?film wdt:P750 ?company . }
+              SERVICE wikibase:label { bd:serviceParam wikibase:language "en,ru". }
+            }
+        `;
+        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+        
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+            const data = await res.json();
+            // Возвращаем массив уникальных названий студий в нижнем регистре
+            const companies = data.results.bindings.map(b => b.companyLabel.value.toLowerCase());
+            return [...new Set(companies)];
+        } catch (e) {
+            console.error("Ошибка при запросе к Wikidata:", e);
+            return [];
+        }
+    }
 
     async function checkMovie() {
         const query = document.getElementById('movieInput').value.trim();
@@ -165,14 +193,14 @@
         card.classList.remove('shake');
 
         try {
-            // 1. Поиск фильма через Кинопоиск (для русского языка, постера и описания)
+            // 1. Поиск фильма через Кинопоиск
             const searchRes = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
                 headers: { 'X-API-KEY': KP_API_KEY }
             });
             const searchData = await searchRes.json();
 
             if (!searchData.films || searchData.films.length === 0) {
-                alert("Фильм не найден в базе Кинопоиска.");
+                alert("Фильм не найден в базе.");
                 loading.style.display = 'none';
                 return;
             }
@@ -185,40 +213,32 @@
             });
             const filmData = await detailRes.json();
 
-            const titleRu = filmData.nameRu || "Без названия";
-            const titleEn = filmData.nameOriginal; // Нам нужно англ. название для OMDb
+            const titleRu = filmData.nameRu || filmData.nameOriginal || "Без названия";
             const year = filmData.year ? parseInt(filmData.year, 10) : 0;
             const description = filmData.description || searchData.films[0].description || "Описание отсутствует.";
             const posterUrl = filmData.posterUrl || searchData.films[0].posterUrl || "";
             const length = filmData.filmLength ? `${filmData.filmLength} мин.` : "Неизвестно";
+            const imdbId = filmData.imdbId;
 
             if (posterUrl) bgImage.style.backgroundImage = `url('${posterUrl}')`;
 
-            // 3. Запрос к OMDb для точной проверки студии
-            let productionStudios = "";
-            if (titleEn) {
-                // Ищем по английскому названию и году для максимальной точности
-                const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(titleEn)}&y=${year}&apikey=${OMDB_API_KEY}`);
-                const omdbData = await omdbRes.json();
-                
-                if (omdbData.Response === "True" && omdbData.Production) {
-                    productionStudios = omdbData.Production.toLowerCase();
-                }
-            }
+            // 3. Запрос к Wikidata для получения точного списка студий и дистрибьюторов
+            const studiosArray = await getStudiosFromWikidata(imdbId);
+            const studiosText = studiosArray.join(" | ");
 
-            // 4. Логика проверок (теперь строго по полю Production)
+            // 4. Логика проверок (строго по списку из Wikidata)
             let reasons = [];
             
             if (year > 2021) {
                 reasons.push(`Фильм вышел позже 2021 года (Релиз: ${year} г.)`);
             }
-            if (productionStudios.includes("warner")) {
-                reasons.push("Присутствуют права студии Warner Bros.");
+            if (studiosText.includes("warner")) {
+                reasons.push("Присутствуют права студии/дистрибьютора Warner Bros.");
             }
-            if (productionStudios.includes("netflix")) {
+            if (studiosText.includes("netflix")) {
                 reasons.push("Фильм выпущен платформой Netflix.");
             }
-            if (productionStudios.includes("amazon")) {
+            if (studiosText.includes("amazon")) {
                 reasons.push("Фильм выпущен платформой Amazon.");
             }
 
@@ -231,6 +251,7 @@
             const statusBanner = document.getElementById('statusBanner');
             const statusText = document.getElementById('statusText');
             const statusReasons = document.getElementById('statusReasons');
+            const studioListDiv = document.getElementById('studioList');
 
             if (reasons.length > 0) {
                 statusBanner.className = 'verdict-box forbidden';
@@ -240,9 +261,16 @@
             } else {
                 statusBanner.className = 'verdict-box allowed';
                 statusText.innerText = '✅ ФИЛЬМ МОЖНО СМОТРЕТЬ';
-                
-                let extraMsg = productionStudios ? ` (Студии по данным OMDb: ${productionStudios.toUpperCase()})` : " (Студии не найдены, но запретов нет)";
-                statusReasons.innerText = 'Ни один из запрещающих критериев (Год > 2021, Warner, Netflix, Amazon) не обнаружен.' + extraMsg;
+                statusReasons.innerText = 'Ни один из запрещающих критериев (Год > 2021, Warner, Netflix, Amazon) не обнаружен.';
+            }
+
+            // Показываем какие студии мы нашли для прозрачности
+            if (studiosArray.length > 0) {
+                // Делаем красивые заглавные буквы для вывода
+                const prettyStudios = studiosArray.map(s => s.replace(/\b\w/g, l => l.toUpperCase())).join(", ");
+                studioListDiv.innerText = `Студии/Дистрибьюторы: ${prettyStudios}`;
+            } else {
+                studioListDiv.innerText = "Данные о студиях не найдены (но запретов нет).";
             }
 
             loading.style.display = 'none';
@@ -250,7 +278,7 @@
 
         } catch (err) {
             loading.style.display = 'none';
-            alert("Произошла ошибка проверки. Проверьте API ключи в консоли (F12).");
+            alert("Произошла ошибка проверки.");
             console.error(err);
         }
     }

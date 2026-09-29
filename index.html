@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamCheck - Проверка фильмов</title>
     <style>
+        /* Стили остались без изменений (тот самый красивый неоновый дизайн) */
         :root {
             --neon-red: #ff2a2a;
             --neon-green: #39ff14;
@@ -20,7 +21,6 @@
             overflow-x: hidden;
         }
 
-        /* Динамический размытый фон */
         #bg-image {
             position: fixed; top: -5%; left: -5%; width: 110%; height: 110%;
             background-size: cover; background-position: center;
@@ -40,7 +40,6 @@
             letter-spacing: 1px;
         }
 
-        /* Поисковая строка */
         .search-box {
             display: flex; width: 100%; max-width: 650px; gap: 15px;
             margin-bottom: 30px; z-index: 10;
@@ -52,10 +51,7 @@
             backdrop-filter: blur(10px); outline: none;
             transition: all 0.3s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
-        input:focus { 
-            border-color: #a855f7; 
-            box-shadow: 0 0 20px rgba(168, 85, 247, 0.5); 
-        }
+        input:focus { border-color: #a855f7; box-shadow: 0 0 20px rgba(168, 85, 247, 0.5); }
         button {
             padding: 18px 35px; font-size: 1.1rem; font-weight: bold;
             border: none; border-radius: 50px;
@@ -64,12 +60,8 @@
             transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
         }
-        button:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 8px 25px rgba(236, 72, 153, 0.6); 
-        }
+        button:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(236, 72, 153, 0.6); }
 
-        /* Карточка с эффектом стекла */
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -79,7 +71,6 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.05);
         }
 
-        /* Плашка с вердиктом */
         .verdict-box {
             text-align: center; padding: 25px; border-radius: 16px; margin-bottom: 30px;
             border: 2px solid transparent; backdrop-filter: blur(10px);
@@ -92,20 +83,13 @@
             background: rgba(255, 42, 42, 0.05); border-color: var(--neon-red);
             box-shadow: 0 0 25px rgba(255, 42, 42, 0.15), inset 0 0 15px rgba(255, 42, 42, 0.1);
         }
-        .verdict-title { 
-            font-size: 1.8rem; font-weight: 900; margin: 0 0 12px 0; 
-            text-transform: uppercase; letter-spacing: 2px; 
-        }
+        .verdict-title { font-size: 1.8rem; font-weight: 900; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 2px; }
         .allowed .verdict-title { color: var(--neon-green); text-shadow: 0 0 15px var(--neon-green); }
         .forbidden .verdict-title { color: var(--neon-red); text-shadow: 0 0 15px var(--neon-red); }
         .verdict-reasons { font-size: 1.15rem; color: rgba(255,255,255,0.9); margin: 0; line-height: 1.6; }
 
-        /* Информация о фильме */
         .movie-content { display: flex; gap: 35px; }
-        .poster { 
-            width: 240px; border-radius: 14px; 
-            box-shadow: 0 15px 30px rgba(0,0,0,0.6); object-fit: cover; 
-        }
+        .poster { width: 240px; border-radius: 14px; box-shadow: 0 15px 30px rgba(0,0,0,0.6); object-fit: cover; }
         .info { flex: 1; }
         .movie-title { font-size: 2.2rem; margin: 0 0 10px 0; font-weight: 800; }
         .movie-meta { color: #c4c4c4; font-size: 1.1rem; margin-bottom: 20px; font-weight: 500; }
@@ -113,7 +97,6 @@
 
         .loading { font-size: 1.3rem; display: none; text-align: center; color: #a855f7; margin-top: 30px; animation: pulse 1.5s infinite; text-shadow: 0 0 10px #a855f7; }
         
-        /* Анимации */
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         
@@ -145,7 +128,7 @@
         <button onclick="checkMovie()">Проверить</button>
     </div>
     
-    <div id="loading" class="loading">Анализируем базы данных и Википедию...</div>
+    <div id="loading" class="loading">Анализируем базы данных (Кинопоиск + OMDb)...</div>
 
     <div id="movieCard" class="glass-card">
         <div id="statusBanner" class="verdict-box">
@@ -165,23 +148,9 @@
 </div>
 
 <script>
-    // ВАШ API КЛЮЧ
-    const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
-
-    // Функция скрытого поиска по Википедии для точного нахождения студий
-    async function searchWiki(query, lang = 'ru') {
-        try {
-            const searchRes = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`);
-            const searchData = await searchRes.json();
-            if (searchData.query && searchData.query.search.length > 0) {
-                const pageId = searchData.query.search[0].pageid;
-                const pageRes = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&pageids=${pageId}&format=json&origin=*`);
-                const pageData = await pageRes.json();
-                return pageData.query.pages[pageId].revisions[0]['*'].toLowerCase();
-            }
-        } catch (e) { console.warn(`Wiki scan error (${lang})`, e); }
-        return "";
-    }
+    // ВАШИ КЛЮЧИ (Обязательно заполните оба!)
+    const KP_API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+    const OMDB_API_KEY = "cbe9adcf"; // Получить бесплатно на omdbapi.com
 
     async function checkMovie() {
         const query = document.getElementById('movieInput').value.trim();
@@ -196,66 +165,65 @@
         card.classList.remove('shake');
 
         try {
-            // 1. Поиск фильма
+            // 1. Поиск фильма через Кинопоиск (для русского языка, постера и описания)
             const searchRes = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
-                headers: { 'X-API-KEY': API_KEY }
+                headers: { 'X-API-KEY': KP_API_KEY }
             });
             const searchData = await searchRes.json();
 
             if (!searchData.films || searchData.films.length === 0) {
-                alert("Фильм не найден.");
+                alert("Фильм не найден в базе Кинопоиска.");
                 loading.style.display = 'none';
                 return;
             }
 
             const filmId = searchData.films[0].filmId;
 
-            // 2. Получение деталей фильма
+            // 2. Получение деталей фильма от Кинопоиска
             const detailRes = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}`, {
-                headers: { 'X-API-KEY': API_KEY }
+                headers: { 'X-API-KEY': KP_API_KEY }
             });
             const filmData = await detailRes.json();
 
-            const title = filmData.nameRu || filmData.nameOriginal || "Без названия";
+            const titleRu = filmData.nameRu || "Без названия";
+            const titleEn = filmData.nameOriginal; // Нам нужно англ. название для OMDb
             const year = filmData.year ? parseInt(filmData.year, 10) : 0;
             const description = filmData.description || searchData.films[0].description || "Описание отсутствует.";
             const posterUrl = filmData.posterUrl || searchData.films[0].posterUrl || "";
             const length = filmData.filmLength ? `${filmData.filmLength} мин.` : "Неизвестно";
 
-            // Ставим постер на задний фон
             if (posterUrl) bgImage.style.backgroundImage = `url('${posterUrl}')`;
 
-            // 3. Сканируем статьи Википедии по названию фильма (самый надежный способ найти студию)
-            let ruWikiText = await searchWiki(`${title} (${year} фильм)`, 'ru');
-            let enWikiText = filmData.nameOriginal ? await searchWiki(`${filmData.nameOriginal} film ${year}`, 'en') : '';
+            // 3. Запрос к OMDb для точной проверки студии
+            let productionStudios = "";
+            if (titleEn) {
+                // Ищем по английскому названию и году для максимальной точности
+                const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(titleEn)}&y=${year}&apikey=${OMDB_API_KEY}`);
+                const omdbData = await omdbRes.json();
+                
+                if (omdbData.Response === "True" && omdbData.Production) {
+                    productionStudios = omdbData.Production.toLowerCase();
+                }
+            }
 
-            // Объединяем весь текст из Кинопоиска и Википедии для проверки
-            const fullTextForCheck = `
-                ${filmData.description || ''} 
-                ${filmData.shortDescription || ''} 
-                ${filmData.nameOriginal || ''}
-                ${ruWikiText}
-                ${enWikiText}
-            `.toLowerCase();
-
-            // 4. Логика проверок
+            // 4. Логика проверок (теперь строго по полю Production)
             let reasons = [];
             
             if (year > 2021) {
                 reasons.push(`Фильм вышел позже 2021 года (Релиз: ${year} г.)`);
             }
-            if (fullTextForCheck.includes("warner bros") || fullTextForCheck.includes("warner brothers") || fullTextForCheck.includes("уорнер бразерс")) {
+            if (productionStudios.includes("warner")) {
                 reasons.push("Присутствуют права студии Warner Bros.");
             }
-            if (fullTextForCheck.includes("netflix") || fullTextForCheck.includes("нетфликс")) {
+            if (productionStudios.includes("netflix")) {
                 reasons.push("Фильм выпущен платформой Netflix.");
             }
-            if (fullTextForCheck.includes("amazon studios") || fullTextForCheck.includes("amazon prime") || fullTextForCheck.includes("amazon mgm") || fullTextForCheck.includes("амазон студиос")) {
+            if (productionStudios.includes("amazon")) {
                 reasons.push("Фильм выпущен платформой Amazon.");
             }
 
             // 5. Отрисовка
-            document.getElementById('movieTitle').innerText = title;
+            document.getElementById('movieTitle').innerText = titleRu;
             document.getElementById('movieMeta').innerText = `Год: ${year || '?'} | Длительность: ${length}`;
             document.getElementById('movieDescription').innerText = description;
             document.getElementById('moviePoster').src = posterUrl;
@@ -268,13 +236,13 @@
                 statusBanner.className = 'verdict-box forbidden';
                 statusText.innerText = '🚫 ФИЛЬМ НЕЛЬЗЯ СМОТРЕТЬ';
                 statusReasons.innerHTML = "<strong>Найдены запреты:</strong><br>" + reasons.map(r => "— " + r).join('<br>');
-                
-                // Добавляем эффект тряски при ошибке
                 setTimeout(() => card.classList.add('shake'), 10);
             } else {
                 statusBanner.className = 'verdict-box allowed';
                 statusText.innerText = '✅ ФИЛЬМ МОЖНО СМОТРЕТЬ';
-                statusReasons.innerText = 'Ни один из запрещающих критериев (Год > 2021, Warner, Netflix, Amazon) не обнаружен.';
+                
+                let extraMsg = productionStudios ? ` (Студии по данным OMDb: ${productionStudios.toUpperCase()})` : " (Студии не найдены, но запретов нет)";
+                statusReasons.innerText = 'Ни один из запрещающих критериев (Год > 2021, Warner, Netflix, Amazon) не обнаружен.' + extraMsg;
             }
 
             loading.style.display = 'none';
@@ -282,7 +250,7 @@
 
         } catch (err) {
             loading.style.display = 'none';
-            alert("Произошла ошибка проверки. Попробуйте еще раз.");
+            alert("Произошла ошибка проверки. Проверьте API ключи в консоли (F12).");
             console.error(err);
         }
     }
